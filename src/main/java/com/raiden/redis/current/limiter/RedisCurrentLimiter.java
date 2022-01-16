@@ -65,8 +65,6 @@ public final class RedisCurrentLimiter {
         });
         long count = getCount(resultArr, 0, 3, 1);
         if (count >= maxCount){
-            System.out.println("这里是:" + count);
-            //删除过期窗口中的 请求标记
             return false;
         }else {
             //如果窗口中的访问数 比最大访问数小
@@ -104,7 +102,6 @@ public final class RedisCurrentLimiter {
         }
         Object o = result.get(countIndex);
         if (o instanceof Long){
-            System.out.println("返回值是：" + o);
             return ((Long) o).longValue();
         }else {
             throw new RuntimeException("Error return result !");
