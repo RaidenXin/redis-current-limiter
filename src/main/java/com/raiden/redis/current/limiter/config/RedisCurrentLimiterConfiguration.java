@@ -4,6 +4,7 @@ import com.raiden.redis.current.limiter.RedisCurrentLimiterInit;
 import com.raiden.redis.current.limiter.aop.RedisCurrentLimitingAspect;
 import com.raiden.redis.current.limiter.properties.RedisCurrentLimiterProperties;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 
 /**
@@ -21,9 +22,7 @@ public class RedisCurrentLimiterConfiguration {
 
     @Bean
     @ConditionalOnBean(RedisCurrentLimiterProperties.class)
-    public RedisCurrentLimitingAspect redisCurrentLimitingAspect(RedisCurrentLimiterProperties properties){
-        return new RedisCurrentLimitingAspect(properties);
+    public RedisCurrentLimitingAspect redisCurrentLimitingAspect(RedisCurrentLimiterProperties properties, ApplicationContext context){
+        return new RedisCurrentLimitingAspect(context, properties);
     }
-
-
 }
