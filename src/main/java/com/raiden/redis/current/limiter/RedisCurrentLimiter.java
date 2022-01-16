@@ -30,7 +30,7 @@ public final class RedisCurrentLimiter {
             throw new NullPointerException("The parameter cannot be null");
         }
         try {
-            ip = Inet4Address.getLocalHost().getHostAddress();
+            ip = Inet4Address.getLocalHost().getHostAddress().replaceAll("\\.", "");
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
