@@ -2,6 +2,8 @@ package com.raiden.redis.current.limiter;
 
 import org.springframework.data.redis.connection.RedisConnection;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
+
 import java.net.Inet4Address;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
@@ -44,30 +46,48 @@ public final class RedisCurrentLimiter {
         if (path == null || path.isEmpty()){
             throw new IllegalArgumentException("The path parameter cannot be empty !");
         }
-        final byte[] key = new StringBuffer(CURRENT_LIMITER).append(path).toString().getBytes(CHARSET);
+        final String key = new StringBuffer(CURRENT_LIMITER).append(path).toString();
         long now = System.currentTimeMillis();
         long windowTimeMillis = windowTimeUnit.toMillis(windowTime);
-        List<List<Object>> arrList = redis.executePipelined((RedisConnection connection) -> {
-            connection.multi();
-            connection.zAdd(key, now, createValue(now));
-            connection.zRemRangeByScore(key, 0, now - windowTimeMillis);
-            connection.zCard(key);
-            connection.pExpire(key, windowTimeMillis + 1000);
-            connection.exec();
-            return null;
-        });
-        if (arrList.isEmpty()){
-            throw new RuntimeException("Error return result !");
-        }
-        List<Object> result = arrList.get(0);
-        if (result.size() != 4){
-            throw new RuntimeException("Error return result !");
-        }
-        Object count = result.get(2);
-        if (count instanceof Long){
-            return ((Long) count).longValue() <= maxCount;
+        //先获取当前窗口请求标记总数 如果超过最大值直接 返回不予许访问
+        ZSetOperations zSetOperations = redis.opsForZSet();
+        Long count = zSetOperations.zCard(key);
+        if (count > maxCount){
+            //删除过期窗口中的 请求标记
+            zSetOperations.removeRangeByScore(key, 0, now - windowTimeMillis);
+            return false;
         }else {
-            throw new RuntimeException("Error return result !");
+            //如果窗口中的访问数 比最大访问数小
+            byte[] keyByte = key.getBytes(CHARSET);
+            //通过通道执行命令
+            List<List<Object>> arrList = redis.executePipelined((RedisConnection connection) -> {
+                //开启事物保障这些命令同一批次串行执行
+                connection.multi();
+                //插入一个请求标记
+                connection.zAdd(keyByte, now, createValue(now));
+                //删除过期窗口中的 请求标记
+                connection.zRemRangeByScore(keyByte, 0, now - windowTimeMillis);
+                //获取当前窗口请求标记总数
+                connection.zCard(keyByte);
+                //设置窗口过期时间
+                connection.pExpire(keyByte, windowTimeMillis + 1000);
+                //执行事物
+                connection.exec();
+                return null;
+            });
+            if (arrList.isEmpty()){
+                throw new RuntimeException("Error return result !");
+            }
+            List<Object> result = arrList.get(0);
+            if (result.size() != 4){
+                throw new RuntimeException("Error return result !");
+            }
+            Object o = result.get(2);
+            if (o instanceof Long){
+                return ((Long) o).longValue() <= maxCount;
+            }else {
+                throw new RuntimeException("Error return result !");
+            }
         }
     }
 
