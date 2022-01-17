@@ -15,7 +15,7 @@ local count = redis.call('ZCARD', key)
 -- 比较当前已经请求的数量是否大于窗口最大请求数
 if count >= maxCount then
     -- 如果大于最大请求数
-    -- 删除过期的请求标志 释放窗口空间
+    -- 删除过期的请求标志 释放窗口空间 等同于滑动时间窗口向前滑动
     redis.call('ZREMRANGEBYSCORE', key, 0, expiredWindowTime)
     -- 再次获取当前窗口的请求标志个数
     local count = redis.call('ZCARD', key)
