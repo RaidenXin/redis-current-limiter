@@ -23,6 +23,8 @@ if count >= maxCount then
     redis.call('PEXPIRE', key, windowTime + 1000)
     -- 比较释放后的大小 是否小于窗口最大请求数
     if count < maxCount then
+         -- 插入当前访问的访问标记
+        redis.call('ZADD', key, nowTime, value)
         -- 返回200代表成功
         return 200
     else
